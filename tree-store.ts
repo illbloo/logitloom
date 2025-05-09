@@ -176,3 +176,76 @@ function trySyncTreeToLocalStorage(roots: Token[]) {
     console.error("persisting tree to localStorage:", e);
   }
 }
+
+/** Export the current tree to JSON. */
+export function saveTreeToFile(): void {
+  if (state.running) {
+    return;
+  }
+  if (state.value.kind !== "tree") {
+    console.error("export failed: no valid tree data");
+    return;
+  }
+  
+  const treeData = JSON.stringify(state.value.roots, null, 2);
+  const blob = new Blob([treeData], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `logitloom.json`;
+  document.body.appendChild(a);
+  a.click();
+  
+  // Clean up
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Import a tree from a JSON file and update the state. */
+export function loadTreeFromFile(file: File): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (state.running) {
+      reject(new Error("can't load tree while running"));
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      try {
+        if (!event.target || typeof event.target.result !== "string") {
+          throw new Error("failed to read file");
+        }
+        
+        const treeData = JSON.parse(event.target.result);
+        if (!Array.isArray(treeData)) {
+          throw new Error("invalid tree format: expected an array");
+        }
+        
+        // Update state with imported tree
+        state = { ...state, value: { kind: "tree", roots: treeData } };
+        trySyncTreeToLocalStorage(treeData);
+        emitChange();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error("error reading file"));
+    reader.readAsText(file);
+  });
+}
+
+/** Reset the tree to an empty state. */
+export function resetTree(): void {
+  if (state.running) {
+    return;
+  }
+
+  const emptyTree: Token[] = [];
+  state = { ...state, value: { kind: "tree", roots: emptyTree } };
+  trySyncTreeToLocalStorage(emptyTree);
+  emitChange();
+}

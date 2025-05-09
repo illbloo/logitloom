@@ -4,7 +4,7 @@ import useLocalStorageState from "use-local-storage-state";
 import * as uuid from "uuid";
 
 import { type Token } from "./logit-loom";
-import { useTreeStore, run, interruptRun, getTokenAndPrefix, loadTreeFromLocalStorage } from "./tree-store";
+import { useTreeStore, run, interruptRun, getTokenAndPrefix, loadTreeFromLocalStorage, saveTreeToFile, loadTreeFromFile, resetTree } from "./tree-store";
 
 const possibleModelTypes = ["chat", "base"] as const;
 type ModelType = (typeof possibleModelTypes)[number];
@@ -80,6 +80,7 @@ function App(): JSX.Element {
             setCurrentPresetId(preset.id);
           }}
         />
+        <SaveLoadResetButtons />
       </Settings>
       <hr />
       <Settings>
@@ -564,6 +565,53 @@ function EditPresetsDialogRow(props: {
       </button>
     </>
   );
+}
+
+function SaveLoadResetButtons() {
+  return (
+    <>
+      <button
+        onClick={() => {
+          saveTreeToFile();
+        }}
+        title="Export current tree to a JSON file"
+      >
+        Save
+      </button>
+      <button
+        onClick={() => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "application/json";
+          input.onchange = (e) => {
+            const target = e.target as HTMLInputElement;
+            if (target.files && target.files.length > 0) {
+              loadTreeFromFile(target.files[0]!)
+                .then(() => { console.log("tree imported"); })
+                .catch((error) => {
+                  console.error("error importing tree:", error);
+                  alert("Error importing tree: " + error.message);
+                });
+            }
+          };
+          input.click();
+        }}
+        title="Import a tree from a JSON file"
+      >
+        Load
+      </button>{" "}
+      <button
+        onClick={() => {
+          if (confirm("Are you sure you want to clear the tree?")) {
+            resetTree();
+          }
+        }}
+        title="Clear the current tree"
+      >
+        Reset
+      </button>
+    </>
+  )
 }
 
 // Broken UTF-8 chip helpers
